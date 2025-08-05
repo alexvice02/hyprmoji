@@ -1,23 +1,37 @@
+#!/usr/bin/env bash
+
 emoji_list=(
-    "😀 Smile"
-    "😂 Laugh"
-    "🥺 Pleading"
-    "🔥 Fire"
-    "👍 Thumbs Up"
-    "💻 Computer"
+  "😀 Smile"
+  "😂 Laugh"
+  "🥺 Pleading"
+  "🔥 Fire"
+  "👍 Thumbs Up"
+  "💻 Computer"
 )
 
-tmpfile=$(mktemp)
+ROFI_CMD=(rofi -dmenu -p "Pick an emoji:")
+WAIT_CLOSE=0.03
 
-for emoji in "${emoji_list[@]}"; do
-    echo "$emoji" >> "$tmpfile"
+read -r PREV_ADDR PREV_WS <<<"$(hyprctl activewindow -j \
+                                | jq -r '.address, .workspace.id')"
+
+PREV_ADDR=${PREV_ADDR:-""}
+PREV_WS=${PREV_WS:-""}
+
+
+chosen=$(printf '%s\n' "${emoji_list[@]}" | "${ROFI_CMD[@]}")
+emoji=$(awk '{print $1}' <<<"$chosen")
+[[ -z $emoji ]] && exit 0
+while hyprctl clients -j \
+        | jq -e '.[] | select(.class=="rofi" or .class=="Rofi")' >/dev/null
+do
+  sleep "$WAIT_CLOSE"
 done
 
-chosen=$(cat "$tmpfile" | rofi -dmenu -p "Pick an emoji:")
+if [[ -n $PREV_WS ]]; then
+  hyprctl dispatch workspace "$PREV_WS" 2>/dev/null || true
+fi
 
-emoji=$(echo "$chosen" | awk '{print $1}')
+printf '%s' "$emoji" | wl-copy
 
-
-echo -n "$emoji" | wl-copy
-
-rm "$tmpfile"
+ydotool key -d 10 29:1 47:1 47:0 29:0
